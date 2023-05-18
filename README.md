@@ -1,16 +1,12 @@
-# 機械学習入門：動かして学ぶ、機械学習のキソ(分類問題編)
+# 機械学習入門：動かして学ぶ、機械学習のキソ(回帰問題編)
 
-※本記事はOracleの下記Meetup「Oracle Big Data Jam Session」で実施予定の内容です。
+※本記事はOracleの下記Meetup「Oracle Big Data Jam Session」で実施予定だった内容です。本会が中止になりましたので、こちらの記事にて代用させていただきます。
 
-https://oracle-code-tokyo-dev.connpass.com/event/252986/
+https://oracle-code-tokyo-dev.connpass.com/event/242500/
 
-※本ハンズオンの内容は事前に下記セットアップが完了していることを前提にしていますのでご参加いただける方々は必ず下記ガイドの手順を実行ください。
+※本記事のセミナー内容は以下の動画でも公開しておりますのでよろしければご参照ください。
 
-https://qiita.com/ksonoda/items/2e7c8f711a9c6f1a71f6
-
-※本記事の内容は以下の動画でも公開しておりますのでよろしければご参照ください。
-
-https://www.youtube.com/watch?v=NQT87zCKTS8
+https://www.youtube.com/watch?v=NQT87zCKTS8&t=1s
 
 本記事の対象者
 ----------------
@@ -18,541 +14,338 @@ https://www.youtube.com/watch?v=NQT87zCKTS8
 - 機械学習のトレンド技術を知りたい方
 - なるべく初歩的な内容から学習したい方
 
-前回の下記記事では、そもそも機械学習とは？というところから、アメリカボストンの住宅情報データを使い、回帰問題のシンプルなコードを概説しました。
+そもそも機械学習とは
+--------------------
+皆様は「風が吹けば桶屋が儲かる」という江戸時代からあることわざをご存知だと思います。風が吹けば寒く感じ、多くの人が風呂屋にいくために桶を買うので桶屋が儲かるという意味かと思いこんでいましたが、実際は違う意味だそうですね。[(wikipedia - 風が吹けば桶屋が儲かる)](https://ja.wikipedia.org/wiki/%E9%A2%A8%E3%81%8C%E5%90%B9%E3%81%91%E3%81%B0%E6%A1%B6%E5%B1%8B%E3%81%8C%E5%84%B2%E3%81%8B%E3%82%8B)
 
-https://qiita.com/ksonoda/items/fed7b6d5cd839c9e8220
+いずれにせよ、このことわざは、ある事象(風が吹くという事象)と一見まったく関係がないと思われる他の事象(桶がたくさん売れるという事象)に、実は何らかの因果関係があるという教訓を表したものです。機械学習とはまさに、データからこの因果関係を見つけるための統計処理と言っていいでしょう。
 
-本記事では、回帰問題同様、ビジネスの場でよく利用される分類問題のサンプルコードを取り上げたいと思います。前回同様、極めてシンプルなコードを学習することで、機械学習の典型的なワークフローや、コードの骨格をぼんやりとでも理解することが目標です。
+このことわざになぞらえて、桶屋の売上を機械学習で予測しようとすると、以下のように、「桶屋の売り上げ」と「風速」というデータが必要になります。
 
-データセットと分析シナリオ
----
-今回の分類分析では様々な銘柄のワインに含まれる各成分を数値データとしてまとめたデータセットを利用します。各ワインに含まれる、アコール、リンゴ酸、マグネシウムなどの含有率や色の濃さ、吸光度など、ワインの品質に影響するであろう項目がまとめられたデータセットです。過去の記事(回帰分析による不動産価格の予測)と同じように、このデータセットを図にしてみると以下のようになり、青色の13個の特徴量と赤色の特徴量との関係を学習させ、予測モデルを構築します。赤色の特徴量は0, 1, 2の3つの値が記録されていることがわかります。このデータセット分類問題として利用する場合、各ワインの成分の値の組み合わせによって、そのワインがグループ0、1、2のどのグループに属するべきかという問題に応用することができます。仮に、この赤色の特徴量をワインの品質と見立てて、グループ0はgood、グループ1はbetter、グループ2はbestと定義すると、これは立派な「ワインの品質を予測するモデル」を作るデータセットになります。
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/590bcc1c-3fbe-2c65-77e3-ea3340785946.png" width=50%>
 
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/bebda9c9-02eb-4d4f-a759-dc6d08cd1f69.png)
+このデータをチャートにしたとき、仮に以下のような分布になった場合、「桶屋の売り上げ」と「風速」に何か法則(因果関係)が見えてきそうですよね？
 
-念のため、本データセットの特徴量の意味を下記に記しておきますが、本ハンズオンの中では、単にワインの成分にはいろいろあってそれが並んでいるだなというレベルの理解で問題ありません。
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/441eba4c-04c3-61e3-ff7e-5e498b584537.png" width=50%>
 
-- Alcohol（アルコール）
-- Malic acid（リンゴ酸）
-- Ash（無機成分）
-- Alcalinity of ash（無機成分によるアルカリ度）
-- Magnesium（マグネシウム）
-- Total phenols（総フェノール類）
-- Flavanoids（フラボノイド）
-- Nonflavanoid phenols（非フラボノイド芳香族）
-- Proanthocyanins（プロアントシアニン）
-- Color intensity（色の濃さ）
-- Hue（色相）
-- OD280/OD315 of diluted wines（ワイン溶液の280 と 315nm の吸光度の比）
-- Proline（プロリン）
 
-過去の記事(回帰分析による不動産価格の予測)を読んでいただけた方は、回帰も分類も基本的な考え方はあまり変わらないじゃない？と気付かれた方も多いと思います。全くその通り、なぜなら回帰も分類も同じ教師あり学習とよんでいるタイプの学習手法だからです。
+そうです、以下のような感じで、おおよその直線が引けることに気付きます。仮にこの直線を表す関数がy=x+1となった場合、その日の「風速」さえわかれば、「売り上げ」が予測できることになります。
 
-余談になりますが、このようなモデルを使うと、個人の好みを登録しておくと、世界中の様々なワインがレコメンドできたり、好みのワインが似ている人の好きなワインを参照できたり、といろいろなサービスが思いつきますね。また正解ラベルを10段階評価方式にして回帰問題として学習させると、美味しいかどうかの単純分類ではなく、そのワインの評価は8点というようなレーティング方式にもできますね。
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/d078e490-25c7-e575-9e7b-2aa7ea5984bc.png" width=50%>
 
-コードの概説
----
+機械学習とはまさに、大量のデータからこのような法則(関数)を見つけ出す統計処理と言えます。ただし、実ビジネスで発生するデータは上記のように都合よくは分布してくれませんよね。また、関係する事象も「風速」一つだけということはあり得ません。そのような状況でも、あらゆる分析ができるように多種多様なアルゴリズムや学習手法があります。沢山のアルゴリズムがリストされている下記のような資料や記事などをよく見かけますが、上述した理由で昔からたくさんの手法が研究・開発されているのです。
 
-データセットと分析シナリオを理解したところで、実際のコードを見てゆきたいと思います。今回も機会学習のライブラリとしては基本となるscikit-learnを使います。このライブラリには多種多様なデータセットが含まれており、上記のワインデータも実はその一つです。そのため下記のような単純なコードで簡単にデータがロードできます。 (※実システムでは、RDBやNoSQL系のデータストア、データレイクなど多種多様なデータストアに接続し、そこに貯められているデータを変換しながら、学習用のデータセットをトライアンドエラーで何度も作り直すという大変な作業を行います。)
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/2a161a4e-f733-428f-af34-12cbcd6fe645.png" width=100%>
 
-まずはデータセットのロードです。
+基本は「回帰」と「分類」
+----------------------
+世の中には沢山のアルゴリズムや学習手法があります。特に非構造化データ(画像データ、音声データ、自然言語)などを使った深層学習は非常に興味深いのですが、実ビジネスで考えると、「回帰問題と分類問題の解き方をいろんなアルゴリズムで試行錯誤できるようになる」が基本です。まずは回帰と分類さえマスターしておけば、皆さまの普段のお仕事に応用できる機会は沢山あるからです。世の中の機械学習のニーズのかなりの範囲を、この2つのパターンで満たせるといっても過言ではありません。それくらい、回帰と分類は適用範囲が広いのです。
+
+回帰とは、先ほどのことわざの例でいうと「桶屋の売り上げ」、つまり売り上げという数値(連続値)を予測するというものです。この後、ご紹介する回帰のコードでは、ある条件下にある「不動産の価格」、つまり価格という連測値を予想するというものになります。
+
+そして分類とは、ある条件下にあるものを「複数のカテゴリに分類する」というものです。この分類タイプのコードも下記記事でご紹介していますので是非ご参照ください。ワインの成分データを集めた情報から、ある条件下(タンニンの含有率、アルコール度数など)のワインの品質が「good」なのか、「better」なのか、「best」なのかの3つのどれかに分類するという分析シナリオです。
+
+https://qiita.com/ksonoda/items/6fdab4522437ae5b0417
+
+※もし、画像データ、音声データ、自然言語の機械学習に興味がある方は過去に実施した以下のセッションをご参照ください。
+
+https://www.youtube.com/watch?v=olPF7MXhDhk&list=PL8x2FJpi0g-uDelTpagDe3pSZGePQFO58&index=6&ab_channel=JapanOracleDevelopers
+
+https://www.youtube.com/watch?v=Q4MsoJoGeEY&list=PL8x2FJpi0g-uDelTpagDe3pSZGePQFO58&index=5&ab_channel=JapanOracleDevelopers
+
+https://www.youtube.com/watch?v=t5EqEoVAdfk&list=PL8x2FJpi0g-uDelTpagDe3pSZGePQFO58&index=4&ab_channel=JapanOracleDevelopers
+
+教師あり学習と教師なし学習
+----------------
+回帰も分類も、一体何を拠り所に、学習処理をするのでしょうか。それに関係するのが「教師あり学習」と「教師なし学習」という学習手法です。機械学習のコードを書いたことがない方でも、これは知っているという方は多いのではないでしょうか。
+
+特にわかりやすいのは「教師あり学習」です。教師あり学習では、集めたデータに「答え」、つまり過去の桶の売り上げ実績が入っています。従って、答えである「桶の売り上げ」を拠り所に、「風速」との関係性を学習します。「答え」を教えてくれる教師がいる状態のデータということで教師あり学習という名前がついています。これは「風速」以外に沢山の条件がある場合でも同じです。そして、この「答え」に相当するデータを「教師データ」と言ったり、「正解ラベル」と言ったりします。
+
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/7f095084-d5b9-778e-546d-0a704405585b.png" width=50%>
+
+ということは、「教師なし学習」は上記の反対で「答え」のデータがない(というより不要)というタイプの学習手法です。例えば、日本人の身長と体重のデータが1000人分あるとします(下図)。このデータを利用して、ある服飾メーカーがTシャツを作る際に、S、M、Lのサイズ感をどのように決定するかを考えてみましょう。機械学習にあてはめて考えると、この1000人を体格の近しいと思われる3つのグループに分けるということになります(更に下の図)。この場合、あるアルゴリズムに基づいて、データの特徴から単にグルーピングをするだけですから、「答え」は不要ということになり、「正解ラベル」不要の「教師なし学習」ということになります。
+
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/1aaac141-0661-86ab-81a0-742c651e3f0b.png" width=50%>
+
+<img src="https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/844d2013-5d91-e273-1d6f-c09186beea28.png" width=50%>
+
+ここまで理解できれば、機械学習の基本コンセプトはもうマスターしたと思って問題ありません。後はさっさとコードを書いて動かすことを繰り返すだけです。その際、僕のオススメは「余計な処理が入っていない極めてシンプルなコードを学習する」ということに尽きます。最近の機械学習ライブラリはどれも非常に秀逸で、ライブラリの抽象度も高いため、かなり簡単に機械学習のコードが書けるようになっています。が、それを差し引いても、ことはじめはこの上なくシンプルなコードを扱うことをオススメします。機械学習はただでさえ専門用語が沢山でてきて難解に感じます。はじめはいろんなことに手を出さずに、セオリー通りのワークフローで最低限のコードを扱い、「機械学習のコードの基本的な骨格」をぼんやりとでも理解することにフォーカスすることが重要だと思うからです。何度かコードを書くと、「なるほど、だいたいどれもやっていることは同じなんだな」と感じることが多くなってくると思います。そう感じたときに、これまでやってこなかった追加のコードを入れてみるなど試行錯誤するのも一興だと思います。機械学習は追及しだすといろんなことをやりたくなってしまいがちです。またそれら知的欲求を掻き立てるように、興味深い沢山のライブラリがリリースされているのですが、ここはグッとこらえて「なにごともHello Worldから」です。
+
+ワークフロー
+----------
+機械学習のワークフローというのは、上述した「なるほど、だいたいどれもやっていることは同じなんだな」という部分になります。具体的に書き出すと以下のような項目です。
+
+- データのロード
+- データの把握、前処理
+- 学習
+- 評価
+
+実際のコードを動かす前に、各フローの概要を把握しておきましょう。
+
+- データのロード
+機械学習にかけるデータを読み込む処理です。本記事では、機械学習のライブラリであるscikit-learnに付属しているデータセットを使いますのでデータのロードは、たった一行で完了です。しかし、実際には、データレイクやデータベースからデータを読み込むなど、データストアには多数の種類があります。また、リアルタイム分析のシステムではpub/subのシステムからデータをとったり、ツイッターなどサービスのAPIを利用してデータをとりにいくパターンなど、その手法は様々です。
+
+- データの把握、前処理
+集めたデータの内容を把握して、分析シナリオに合わせたデータの加工が必須となります。各特徴量が連続値なのかカテゴリカルなのか、各特徴量の相関関係はどの程度か、学習にかける特徴量は足りているのか、足りていなければ新たにどのような特徴量を作るのか、欠損値はないか、どのように値が分布しているか、などなど、このフェーズではやることがたくさんあります。また、正解ラベルが必要な分析シナリオでは、正解ラベルをどう集めるかといった大きな問題にあたることもあります。機械学習の中でも最も重要なパートです。ここでの作業の質がそのまま予測モデルの精度に直接的に影響してきます。
+
+- 学習
+前処理が完了したデータを統計処理にかけて学習させ、予測モデルを構築するフェーズです。沢山のアルゴリズムから最適なものを選ぶ必要があります。また各アルゴリズムにはパイパーパラメータと呼んでいるチューニング可能なパラメータがあり、パターン数を考えると膨大な数になります。が、昨今はどのライブラリもAutoMLの機能が豊富で、アルゴリズムもハイパーパラメータも最適なものを自動的に選択してくれますので、概要を理解していれば十分です。このフェーズでは難解なアルゴリズム名が多々でてくるので、非常に難しいパートのように感じますが、実は各アルゴリズムの適用パターンはおおよそ決まっています。また各アルゴリズムは一度理解してしまうと、その内容が大幅に変わることはあまりありませんので、最初のハードルを越えてしまうと、あとはお決まり流れのコードを書くという作業になります。また、このように定型化できる部分をなるべくコンピュータにやらせて自動化してしまうAutoMLの仕組みは今後もますますエンハンスされるでしょう。
+
+- 予測モデルの評価
+学習して予測モデルが構築されれば、機械学習は完了！とはなりません。実際に構築したモデルの精度を評価し、リリースしてもよいかどうかを判断します。精度の評価は、「メトリック」と呼んでいる値を算出し、その値によって判断します。回帰や分類など、それぞれのタイプに応じたメトリックが存在し、その算出方法も決まっています。精度が低い場合は、前のフェーズに戻り、データの前処理内容を見直したり、アルゴリズムやハイパーパラメータを変えたり、ときにはビジネスゴールに応じて分析シナリオそのものを変更する必要もあります。このような試行錯誤を繰り返し、最終的に精度を確保したモデルを構築します。
+
+※場合によっては、この後に「予測モデルの解釈」というフェーズがあります。これは、出来上がった予測モデルを理解するために必要なフェーズです。開発者が予測モデルを理解することで、そのモデルに欠陥やバグがあった場合に気付きやすくなります。また、ある予測を行った場合に、なぜそのような予測結果になったかを説明することができるようになります。これは非常に重要なことで、昨今、認知が広がっている分野です。機械学習は目的ではなく手段です。その予測結果をもとに何らかの業務的なアクションを行うことになります。その意思決定の理由が、「なんか機械学習にかけたら、こんな結果になったので、とりあえずこれでやってみます。」で通る企業はないからです。
+
+
+分析シナリオ
+-----------
+サンプルコードを動かし、その内容つまり、分析シナリオを理解するには、データセットの内容に着目することが一番重要です。今回の回帰分析では「The Boston house-price data」と呼ばれる有名なデータセットを使います。このデータは米国国税調査局が収集した情報をベースに作成されたデータセットです。ボストンの町ごとの「犯罪率」や「非小売業の割合」など、全部で14の属性(列)を持ったデータセットになっています。本サンプルコードでは、青色の13個の属性と赤色の1個の属性の関連性を学習し、予測モデルを構築します。すなわち、その町の13個の属性から、赤色の属性、つまり住宅価格を予測するモデルを構築するというものです。
+
+![boston.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/51de7f16-e5ee-3042-780d-692365267069.png)
+
+
+各列の概要は以下の通りです。
+
+- CRIM： 犯罪率
+- ZN：広い家の割合(25,000平方フィートを超える住宅地の割合)
+- INDUS：非小売業の割合
+- CHAS：チャールズ川隣接状況(隣接の場合：1、隣接していない場合：0）
+- NOX： 一酸化窒素濃度
+- RM：平均部屋数
+- AGE：築古の割合(1940年より前に建てられた持ち家の割合)
+- DIS：主要施設への距離(ボストン雇用センターまでの加重距離)
+- RAD：主要高速道路へのアクセス性指数
+- TAX：固定資産税率(10,000ドル当たり)
+- PTRATIO：生徒と先生の比率
+- LSTAT：低所得者人口の割合
+- MEDV：住宅価格(1000ドル単位の中央値)
+
+
+それでは、実際にプログラムを動かしてみましょう。コードを動かす環境としてはPython、機械学習ライブラリはscikit-learnを使いたいと思います。ご自身のラップトップにインストールしたPythonでも動作しますが、Oracle Cloudに Data Science Serviceと呼んでいる機械学習のクラウドサービスがあり、そちらをご利用いただくと、非常に簡単に環境の構築が可能です。
+
+※もしData Science Serviceを使ってみようと思われる方は、以下のビデオで簡単に同サービスのプロビジョニングが可能です。
+
+https://www.youtube.com/watch?v=8LRQzPUwWzI&ab_channel=OracleLearning
+
+環境がセットアップできたら、さっそくコードを書いてみましょう。
+(本サンプルコードはJupyter Notebook形式で[Oracle Japan公式リポジトリ](https://github.com/oracle-japan/oci-datascience-hol02)に掲載しております。)
+まず初めに必要なライブラリをimportします。機械学習では集めたデータを配列に入れ込んで、データの操作や処理を行います。そのため、多次元配列用のライブラリやデータ操作のためのライブラリ(numpy、pandas)が必要になります。また、データを視覚化しチャートとして表示するためのライブラリ(seaborn、maploptlib)をインポートします。
 
 ```python
-from sklearn.datasets import load_wine
-data_wine = load_wine()
-```
+import numpy as np
+import matplotlib.pyplot as plt 
 
-次に、ロードされたデータを確認しつつ、簡単な前処理を行います。先ほど、ロードしたデータをpandasのデータフレームに変換します。こうすることでpandasの便利なデータ処理関数を利用してデータの前処理や成形を行うことができます。またデータの前処理ではデータセット全体に処理を施したり、データセットの説明変数(データセットの青色の部分)のみ、もしくは目的変数(赤色の部分)のみに対して行う場合があります。その際、説明変数のデータフレームの変数名はX、目的変数の変数名はyとするのが慣例です。つまりXとyの関係を学習し、予測モデルy(X)を構築するというイメージです。
-
-まずはロードしたデータdata_wineから目的変数と特徴量の名前を抜き出して説明変数用のデータフレームを作成します。
-
-```python
-import pandas as pd
-X = pd.DataFrame(data_wine["data"],columns=data_wine["feature_names"])
-```
-
-
-shape関数でデータフレームXの行数と列数を確認します。
-```python
-X.shape
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/58452154-22e4-57f9-bc3e-6fee3d8a44bc.png)
-
-
-headでどのようなデータフレームができたかを確認してみます。
-```python
-X.head()
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/ee376660-f15f-063f-b16e-782b53e60ccc.png)
-
-
-
-describeを使って全特徴量の統計値の概要を確認してみましょう。出力の各項目の意味は下記の通りです。一目で各特徴量の分布を比較できる非常に便利な関数です。株式投資をされている方であれば、株価チャートから確認できる見慣れた統計情報かと思います。
-
-- count: 個数
-- mean: 算術平均
-- std: 標準偏差
-- min: 最小値
-- max: 最大値
-- 50%: 中央値
-- 25%: 1/4分位数
-- 75%: 3/4分位数
-
-```python
-X.describe()
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/e939fb4e-2a9d-faf0-9d61-60ba3b19df6d.png)
-
-過去の記事(回帰分析による不動産価格の予測)では各特徴量同士の相関関係を確認していました。説明変数同士で相関関係が強い特徴量を学習データに含めてしまうと多重共線性という症状が発生し、予測モデルの精度に悪影響を及ぼすことがあるため、原則、そのような特徴量は一つに絞ります。ですが、本サンプルコードは回帰分析ではなく分類分析ですので気にする必要はありませんが、データ把握の観点から相関関係を確認しておきましょう。
-
-各特徴量の相関関係をチャート化するために、seabornをインポートし、ヒートマップとして出力すると、非常にわかりやすいです。このヒートマップの見方は過去の記事(回帰分析による不動産価格の予測)をご参照ください。
-
-
-
-```python
+import pandas as pd  
 import seaborn as sns 
-corr_matrix = X.corr().round(2)
-sns.heatmap(data=corr_matrix, annot=True)
+
+%matplotlib inline
 ```
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/b31d4ec0-503f-cce6-47d5-d18c18504893.png)
 
-説明変数のデータフレームについてはここまでにして、目的変数の簡単な前処理を行いたいと思います。
-
-まずは、説明変数の時と同様に、ロードしたデータdata_wineから今度は目的変数を抜き出し、pandasのデータフレームを作成します。すでに説明したとおり、目的変数の変数名は慣例に倣い、yとしておきましょう。headで確認すると目的変数だけのデータフレームが作成できていることがわかります。
+次に、データのロードです。上述したボストンの不動産価格情報のデータセットはscikit-learnに含まれていますので、以下のようなコードで簡単にデータのロードができます。
 
 ```python
-import pandas as pd
-y = pd.DataFrame(data_wine["target"],columns=["target"])
-y.head()
+from sklearn.datasets import load_boston
+boston_dataset = load_boston()
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/e4398208-9232-013b-e3f6-8722ace23fa9.png)
 
+データ操作の処理をするために、boston_datasetをpandasのデータフレームに変換し、head()でデータを確認してみます。
 
-headでは指定した行数だけしか確認できないので、sampleで作成したデータフレームから20個ほどデータをサンプリングしてみると、0, 1, 2の三つの値が記録されていることが確認できます。
 
 ```python
-y.sample(20)
+boston = pd.DataFrame(boston_dataset.data, columns=boston_dataset.feature_names)
+boston.head()
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/d44a8859-0838-eeca-e21d-2f3215a9fa78.png)
 
-人間がこのデータを見ると、0, 1, 2の3つのカテゴリに分類されていることは想像できますが、この0, 1, 2という値は数値としての意味を持つため、分類問題には適していません。したがって、この整数値の変数をカテゴリカル変数に変換する必要があります。今回の分析シナリオは「ワインの品質を予測する」というものですので、この0, 1, 2をgood, better, bestに変換します。
+![01.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/9769bf03-f640-379e-030b-a944c23184c7.png)
+
+予測対象の不動産価格情報(MEDV)の列がありませんね。これが正解ラベルになりますから、このデータフレームにMEDVの列を追加する処理を下記のように行います。このようにデータ処理を簡単に行えるようにするために、学習データをpandasのデータフレームに変換しておくということになります。
 
 ```python
-y = y.replace({0:'good', 1:'better', 2:'best'})
+boston['MEDV'] = boston_dataset.target
+boston.head()
 ```
 
-先ほどと同じように、sampleでデータフレームを表示するとちゃんと変換されていることがわかります。
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/801e1434-0209-c2ef-c87a-def87ee19c8a.png)
+
+上記のように、正解ラベルである、MEDVの列が追加されていることがわかります。ここから簡単なデータの確認作業をしてみましょう。まず初めに行うべきは、データの欠落があるかどうかの確認です。下記のようにisnull()で簡単に確認できます。
 
 ```python
-y.sample(20)
+boston.isnull().sum()
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/3c6b8058-e9b5-4889-e231-636491537593.png)
+![02.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/6e9c6bcf-bdaa-5ba3-fa66-8f485b3e3c04.png)
 
-ここで、これまで作成したデータフレームがどういうものかをまとめて確認しておきましょう。 データフレームは下記2つを作成しました。
+全てゼロなので、欠損値はないということが確認できました。
+ここからより詳しく、データを把握してゆきます。データの把握と一言でいってもその作業は様々です。しかし、もっとも重要なことは、そのデータの「分布」を把握するということです。ですので、このデータセットで非常に重要な特徴量であるMEDV(不動産価格)の分布を、先にimportしたseabornでチャート化してみましょう。
 
-- X(説明変数): ワインの成分をまとめたデータフレーム
-- y(目的変数): ワインの品質をgood, better, bestの3段階で記録したデータフレーム
+```python
+sns.set(rc={'figure.figsize':(11.7,8.27)})
+sns.distplot(boston['MEDV'], bins=30)
+plt.show()
+```
 
-そして、ここから、この2つのデータフレームを更に、学習用データと評価用データに分割します。学習用データはその名の通り、予測モデルを作るために使うデータです。そして、予測モデルを作った後に、そのモデルでどの程度の精度がでるのかを評価するためのデータが評価用データです。モデルの評価は、そのモデルにとって未知のデータで実施する必要があるため、学習用データと評価用データに分割します。つまり、最終的には以下の4つのデータフレームが出来上がります。
+![03.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/2c258038-c9f2-b15a-0f92-83c4d2f7fca2.png)
 
-データフレーム X(説明変数)を下記2つに分割
-- X_train(説明変数)：y_trainと共に、学習用データとして利用
-- X_test(説明変数):y_testと共に、評価用データとして利用
+まず、外れ値がほとんどないということ、そして、値が明らかに正規分布であることがわかります。正規分布とは連続値のデータが平均値あたりに集中し、最小値、最大値に近づくにつれて、減少するような分布のことを言います。このような偏りの少ないデータはそのまま機械学習にかけやすいデータと言えるでしょう。
 
-データフレーム y(目的変数)を下記2つに分割
-- y_train(目的変数)：X_trainと共に、学習用データとして利用
-- y_test(目的変数):y_testと共に、評価用データとして利用
+そして、次に重要な確認が、各特徴量の相関関係になります。これも下記のように、seabornを使ってヒートマップ形式で表示することにより、一目で相関関係の強さが確認できます。
 
-分割はtrain_test_splitという関数を使います。引数のtest_sizeで、評価用に全体の何パーセントのデータを割り当てるかを指定します。仮に0.3を指定すると、評価用に全体の30%のデータが使われ、残り70%データが学習用に使われるということになります。つまり、全体の70%のデータで学習した予測モデルを、残り30%のデータで答え合わせをするというイメージです。また、ここでは省略していますが、train_test_splitにはshuffleというデフォルト引数があり、これがTrueになっているとデータを分割する前にランダムに並び替えを行ないます。乱数を使ってランダムに並び替えた後にデータ分割をするのですが、その乱数のシードを引数randome_stateで固定するというイメージです。つまり、randome_stateの値が同じであれば何度実行しても必ず同じデータセットを作ることができます。今回は意識する必要はありませんが、複数の乱数シードをランダムに選んで複数回学習と評価を行い、行った結果を統計処理したいなどの場合に有効です。
+```python
+correlation_matrix = boston.corr().round(2)
+sns.heatmap(data=correlation_matrix, annot=True)
+```
+
+![04.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/bd310141-de05-a934-3d28-6f6a20395612.png)
+
+縦軸と横軸に全ての特徴量がプロットされ、その相関関係の強さを色の具合によって直感的に把握することができます。相関関係は-1から1の間の値で表示され、ゼロから-1に近づくにつれて、負の相関関係が強く、ゼロから1に近づくにつれて、正の相関関係が強いということになります。相関関係はその計算式から、以下のような傾向を把握するために、正と負があります。
+
+・ある特徴量が大きくなれば、もう一つの特徴量も大きくなる場合、相関係数は正で表される
+・ある特徴量が大きくなれば、もう一つの特徴量は小さくなる場合、相関係数は負で表される
+
+今回の回帰分析では線形回帰と呼んでいるアルゴリズムを利用します。線形回帰では、予測対象の特徴量を目的変数、その他の特徴量を説明変数と呼びます。目的変数と相関関係の強い説明変数を使って機械学習を行うと精度の高い予測モデルが作れそうだということは直感的にわかりますよね。
+また、説明変数同士の相関関係が高い場合、多重共線性と呼んでいる症状が発生し、正確な精度を把握することができなくなるため、特に回帰問題では注意が必要です。
+したがって、上述したヒートマップから、相関関係をちゃんと把握し、学習に使う特徴量を選別することが重要になります。(※実際の分析の現場では、ここは試行錯誤を繰り返したり、AutoMLの機能で対応したりします)
+
+このbostonのデータセットのヒートマップを具体的に見てみると、
+
+- 特徴量DISとAGEは0.75、RADとTAXは0.91という強い相関関係にあるため、説明変数には使えなさそう
+- 目的変数であるMEDV(不動産価格)と相関の強い、LSTAT(低所得者人口の割合)と、RM(平均部屋数)は説明変数として使えそう
+
+という状況なので、今回はシンプルにこのLSTATとRMを説明変数の候補にして学習してみたいと思います。学習の前に、念のため、説明変数の候補であるLSTAT、RMと、目的変数であるMEDVをチャートにして見てみましょう。
+
+```python
+plt.figure(figsize=(20, 5))
+
+features = ['LSTAT', 'RM']
+target = boston['MEDV']
+
+for i, col in enumerate(features):
+    plt.subplot(1, len(features) , i+1)
+    x = boston[col]
+    y = target
+    plt.scatter(x, y, marker='o')
+    plt.title(col)
+    plt.xlabel(col)
+    plt.ylabel('MEDV')
+```
+
+![05.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/dd6db83d-ef52-dff9-0e66-680e4c846f2d.png)
+
+おぼろげに以下のような傾向があるように見えますよね。
+
+- LSTATが大きくなるにつれて、MEDVは小さくなる(つまり、低所得者の割合が増えるにつれて、その所有者の不動産価格は低い)
+- RMが大きくなるにつれて、MEDVは大きくなる(つまり、部屋数が増えるにつれて、不動産価格は高くなる)
+
+という感じで、感覚的に納得感がある分布で、このデータセットは非常にわかりやすいですね。
+
+説明変数が決まれば、次は学習のフェーズです。下記のコードで、この2つの説明変数からXという名前で説明変数のみのデータフレームを作ります。そしてYという名前で目的変数だけのデータフレームを作ります。
+
+```python
+X = pd.DataFrame(np.c_[boston['LSTAT'], boston['RM']], columns = ['LSTAT','RM'])
+Y = boston['MEDV']
+```
+
+そして、作成したデータフレームを、次のコードで学習用データ(X_train, Y_train)と評価用データ(X_test, Y_test)に分割します。評価用が0.2とあり、これはデータ量の20%を意味します。つまり、80%のデータで学習し、作った予測モデルを20%のデータで評価するということになります。
 
 ```python
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, random_state=5)
+print(X_train.shape)
+print(X_test.shape)
+print(Y_train.shape)
+print(Y_test.shape)
 ```
 
-分割した各データフレームの行数と列数をshape関数で確認してみます。
+![06.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/7838a501-64fe-9291-31d1-ee516eb6d932.png)
+
+上記のような出力となり、これは
+- 説明変数の学習用データ X_trainが404行、2列(LSTATとRM)
+- 説明変数の評価用データ X_testが102行、2列(LSTATとRM)
+- 目的変数の学習用データ Y_trainが404行、1列(MEDV)
+- 目的変数の評価用データ Y_testが102行、1列(MEDV)
+
+ということを意味しています。
+できあがったデータを学習にかけます。学習に使うアルゴリズムは線形回帰(LinearRegression)と呼んでいるものです。LinearRegression()から予測モデルlin_modelを作成し、fit関数で学習をしています。もちろん、説明変数のデータフレームであるX_trainと目的変数のY_trainの関係性を学習するためにこの2つのデータフレームがfit関数の引数となっていることが下記コードからわかります。
 
 ```python
-X_train.shape
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/2637d45a-11b4-4922-f7f8-75f0baf4ddd9.png)
+from sklearn.linear_model import LinearRegression
 
-```python
-X_test.shape
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/539c2281-0f73-998c-a611-2d9e3970740b.png)
-
-
-```python
-y_train.shape
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/8e2642e9-d796-d5b0-8187-71aa4c21477f.png)
-
-
-```python
-y_test.shape
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/594ae25a-7b99-79f9-0bd2-47cea0184626.png)
-
-もともと178行あったデータは学習用データ(70%)の124行と、評価用データの54行に分割されたことがわかります。また説明変数のデータフレームはX_train、X_testともに13列、目的変数のデータフレームであるy_train、y_testともに1列であることがわかります。
-
-これで、学習用データと評価用データが出来上がりました。もうすぐにでも機会学習の統計処理にかけられる状態にありますが、実際の分析の現場ではそうはいきません。今回使用しているデータセットはscikit-learnに付属しているデータセットです。分類問題を体感するためのデータセットですから、当然、無難に分類はできるようなデータの分布になっているわけです。ですが実ビジネスで発生するデータはそうはいかないと思います。従って、実際に長時間の学習処理を実行する前に、「このデータは本当に分類できそうなのか？」という当たりをつけておきたいということがあります。ということで、非常に簡単ではありますがその「当たりをつける」ためのデータ探索をしてみたいと思います。いわゆるExploratory data analysis(探索的データ解析)とよばれているものです。
-
-まずは、いったん、X_trainとy_trainを合体させたデータフレームをtrainという名前で作成します。
-
-```python
-train = pd.concat([X_train,y_train],axis=1,sort=False)
+lin_model = LinearRegression()
+lin_model.fit(X_train, Y_train)
 ```
 
-infoでtrainの概要を確認します。
-
-```python
-train.info()
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/6fd589a4-d5bf-2755-1cbe-d6a402547a7b.png)
-
-124行のデータで、0から12までの13個全ての説明変数のデータ型はfloat型、そして、1つの目的変数があることが確認できます。 つまり、このデータセットは全ての特徴量が浮動小数点数で構成されているので、各値の分布状態を確認することで分類ができそうか当たりがつけられそうです。
-
-まずは3つのクラス(good/better/best)の平均値を確認してみましょう。groupbyでソートし、meanで平均値を計算します。
-
-```python
-train.groupby("target").mean()
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/0fcba254-ed5f-ac34-8c1f-6c6a78bdca84.png)
-
-そうすると、flavanoids、color_intensity、prolineあたりの特徴量におけるクラスごとの差は他の特徴量と比べてかなり差あることが分かります。
-
-ということでこの3つだけを抜き出してみます。 平均値の差が最小と最大で、flavanoidsは380%、color_intensityは250%、prolineは210%もの差になるので、各クラスの要素の分布はかなり分離状態にある可能性が期待できます。
-
-```python
-train.groupby("target").mean()[["flavanoids","color_intensity","proline"]]
-```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/358cc219-6ed2-a28f-b7cc-c9e8f01d6248.png)
-
-この3つの特徴量の分布を各クラスごとにseabornと呼んでいるライブラリを使ってボックスプロット(箱ひげ図)でチャート化してみます。
-
-```python
-import seaborn as sns 
-sns.boxplot(x='target', y='flavanoids', data=train)
-```
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/f3e476bd-2157-d01f-10b4-2071ef6f86fb.png)
-
-
-flavanoidsはクラス間で最も差が大きかった特徴量です。予想通り、各クラス間の全体範囲の重なりはあるものの、四分位範囲(箱の部分)の重なりは全くないので全てのクラスをきれいに分離できそうです。
-
-次に、color_intensityをチャート化してみます。
-
-```python
-import seaborn as sns 
-sns.boxplot(x='target', y='color_intensity', data=train)
-```
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/b0c73878-a294-897b-c26e-e17bec1688de.png)
-
-
-
-同じく四分位範囲を確認すると、他のクラスとの重なりがないbetterはきれいに分離できそうです。
-
-次にprolineをチャート化します。
-
-```python
-import seaborn as sns 
-sns.boxplot(x='target', y='proline', data=train)
-```
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/28701609-4430-d9a1-6c8d-b433cf70b06c.png)
-
-
-同じく四分位範囲を確認すると、他のクラスとの重なりがないgoodはきれいに分離できそうです。
-
-箱ひげ図は、データの分布について、最小値、最大値、四分位数、四分位範囲などで値を正確に把握することができますが、箱の中でどのような分布にはっているかはわかりません。ですので、次は、散布図でチャート化し、箱ひげ図の箱の中のデータ分布を確認したいと思います。
-
-```python
-sns.scatterplot( x='flavanoids', y='color_intensity',hue="target", data=train)
-```
-
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/5e5864de-22e9-dc8c-b163-f7d369178fb6.png)
-
-
-```python
-sns.scatterplot( x='proline', y='color_intensity',hue="target", data=train)
-```
-
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/b3a2a484-bcf7-f925-54c3-f65f49a2fb34.png)
-
-
-```python
-sns.scatterplot( x='proline', y='flavanoids',hue="target", data=train)
-```
-
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/daf9b625-01b6-d348-235d-2ad54b608b86.png)
-
-
-いずれも重なりはあまり多くなく、分離しやすいデータだということが直感的にわかると思います。逆に、各要素のデータ分布が入り組んで重なっていると分離しにくいということになります。
-
-ここまでの作業で、機会学習にかけるデータセットの作成が完了し、そのデータの分布から、うまく分類できそうだということがわかりましたので、このデータセットを機会学習にかけるステップに入ります。分類問題で利用できるアルゴリズムは下記にリストしたように多々あり、データの種別や量、分布の度合、分類クラス数など、その他様々な条件からアルゴリズムを選択します。
-
-- 決定木(Decision Tree)
-- 一般化線形モデル(GLM)
-- 単純ベイズ(Naive Bayes)
-- ランダム・フォレスト(Random Forest)
-- サポート・ベクター・マシン(SVM)
-- 明示的セマンティック分析(ESA)
-- ニューラルネットワーク(NN)
-- 勾配ブースティング木(GBDT)
-
-ここでは、まずは、非常にわかりやすい決定木(Decision Tree)と呼んでいるアルゴリズムを使ってみたいと思います。 決定木分析とは、何らかの意思決定の際に、その決定に影響を与えている「条件」の内容(値など)によって、最終的な意思決定がどのようなパターンになるかを導き出すアルゴリズムです。 下図のように、「意思決定の内容」は、その条件がとりえる「値」によってツリー構造に分岐するわけですが、この複数条件の分岐点と、その組み合わせを統計的に導き出す計算をするのが決定木です。つまり、上述した、決定に影響を与えている「条件」が説明変数(従属変数)となり、「意思決定の内容」が目的変数(独立変数)となります。
-
-ゴルフに行くか行かないかの意思決定の決定木
-
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/fb9b0432-8cd9-40ad-6db8-ae73cdea7b37.png)
-
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/2cc7140d-e2fd-24ea-6020-ff91ea2caea6.png)
-
-出典 wikipedia https://ja.wikipedia.org/wiki/%E6%B1%BA%E5%AE%9A%E6%9C%A8
-
-そして、決定木だけでなく、機械学習で使われるアルゴリズムはほぼ全てにおいてハイパーパラメータというパラメータを持っています。これらの値を何にするかで、学習にかかる時間や最終的にできあがる予測モデルの精度が変わってきます。
-
-決定木アルゴリズムのハイパーパラメータ　
-- criterion 分岐点の基準値の算出手法
-- max_depth　決定木の深さの最大値
-- min_samples_split　サンプルを枝に分割する数の最小値
-- min_samples_leaf　サンプル1つが属する葉の数の最小値
-- min_weight_fraction_leaf　1つの葉に属する必要のあるサンプルの割合の最小値
-- max_leaf_nodes　作成する葉の数の最大値(指定した場合max_depthは無効化）
-- max_features　最適な分割を探索する際に用いる特徴数の最大値
-- class_weight　クラスの数に偏りがある場合に、クラスごとの重みを調整
-
-ハイパーパラメータの詳細はやデフォルト値は下記scikit-learnのマニュアルをご確認ください。 https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html
-
-決定木については後ほどもう少し詳しく触れますので、現状この程度の理解で十分です。
-
-それでは学習に利用するアルゴリズムを決定木として定義してゆきましょう。ハイパーパラメータはmax_depthだけを指定、その他はデフォルト値でdecisiontree_clfという名前でモデルを定義します。
-
-※時間に余裕がある方は後ほど、いろんなパラメータを試してみてください。例えば、max_depthの値を1や2にして今回の結果と比較してみるのもいいと思います。
-
-```python
-from sklearn.tree import DecisionTreeClassifier
-decisiontree_clf = DecisionTreeClassifier(max_depth=3)
-```
-
-アルゴリズムが定義できたので、fit関数でdecisiontree_clfを学習させます。
-
-```python
-decisiontree_clf.fit(X_train, y_train)
-```
-
-これで学習が完了し、予測モデルが構築できましたので、実際に予測処理を行ってみたいと思います。予測するデータは学習時に利用しなかった X_test から下記のように一行抜き出したデータで予測をします。
+これで学習が完了し、予測モデルが構築できましたので、実際に予測処理を行ってみたいと思います。予測するデータは学習時に利用しなかった X_test から一行抜き出して、そのデータで予測をします。
 
 ```python
 X_pred = X_test.iloc[0:1]
-X_pred
+print(X_pred)
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/4b02b70e-4fd4-2551-f3d2-b6b591bc811a.png)
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/35c359e8-c400-4761-9a74-708b77a4d0cf.png)
 
-予測をする前に、このデータ(ワイン)の正解ラベルを確認しておきましょう。
+このデータから不動産価格を予測させる処理を行います。LSTATが3.21、RMが8.04のときに不動産の価格MEDVがいくつになるのかを予測します。予測処理を行う前に、正解を確認しておきましょう。
 
 ```python
-y_pred = y_test.iloc[0:1]
-y_pred
+Y_pred = Y_test.iloc[0:1]
+print(Y_pred)
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/48664a91-6541-d0ea-ac33-f0c3afd12f88.png)
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/8db6c79c-d56d-174b-a472-c32121184b04.png)
 
-
-上記のように正解ラベルはgood、つまりこのワインの品質はgoodであることがわかります。実際にgoodと予測できることを期待しつつ、predict関数で予測実行します。
+上記から、実際の正解はMEDV=37.6ということがわかります。この値に近しい値が予測できるかどうかが、構築した予測モデルの精度ということになります。予測処理をする場合はpredict関数を使います。
 
 ```python
-decisiontree_clf.predict(X_pred)
+lin_model.predict(X_pred)
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/98005e75-86cf-481a-eaa3-eef46cfe1db2.png)
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/76088bb5-b27d-cc90-3072-1e797f20ede3.png)
 
+上記の通り、37.38という値が予測できました。感覚的には、正解の37.6に比較的近しい値だと思いますが、これはたまたまかもしれません。従って、このモデルをちゃんと評価して、モデルの精度を数値化する必要がでてきます。
 
-正解ラベル同様、ちゃんとgoodに分類できたことが確認できました。
-
-上記は一つのワインデータだけを予測しましたが、X_testにリストされているすべてのワインの品質の予測予測結果を、正解ラベルと照合し、どの程度の正解率になったかを計算することで、このモデルの「確からしさ」の各種の指標値で把握することができます。
-
-回帰問題同様に、分類問題も、モデルの確からしさを評価する手法はおおよそ決まっています。下記は分類クラスが2つ(PositiveとNegative)の例ですが。評価データの予測結果から、まずは混同行列と呼ばれているものを作成します。
-
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/e55b9906-19b7-6f95-d886-e8f6687a2b73.png)
-
-
-各マスの意味は下記の通りです。
-
-予測結果が正解だったもののうち、
-- Positiveで正解だったものをTrue Positive(TP)
-- Negativeで正解だったものをTrue Negative(TN)
-
-予測結果が不正解だったもののうち、
-- Positiveで不正解だったものをFalse Positive(FP)
-- Negativeで不正解だったものをFalse Negative(FN)
-
-そして、混同行列から、下記5つの指標を計算し、モデルの確からしさを判断します。
-
-- 正解率(accuracy)：予測モデルがテストデータを正しく推論できた割合
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/9a1a5af1-6995-9ca8-a725-9a0efba4b55c.png)
-
-- 精度(precision)：予測モデルがpositiveと判断した時の信用度を示す指標
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/5e74ddd3-7cb6-ef3c-ad81-690dcbb9b4b1.png)
-
-
-- 再現率(recall)/真陽性率(true positive rate: TPR)：positiveのデータ全体の内、予測モデルがどれぐらい正しくpositiveと推論できたかを示す指標
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/4d9a7386-662e-2822-d66f-a24643fce1c9.png)
-
-
-- 偽陽性率 (false positive rate: FPR)：negativeデータ全体の内、予測モデルがどれくらい誤ってpositiveと推論してしまったかを表す指標
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/e2c48e7f-ad23-e618-ebbd-bf669c7244bb.png)
-
-
-- F値(F-measure)：精度(precision)と再現率(recall)の調和平均
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/7030ec9a-6151-f68d-a71c-71a5dbed12a7.png)
-
-
-上記のようにモデルの評価にはたくさんの指標を確認する必要がありますが、ここでは一旦、一番わかりやすい、正解率(accuracy)のみを確認しておきましょう。
+回帰モデルを評価する際に、最低確認しなければいけない指標は「二乗平均誤差(RMSE)」や決定係数(R2)と呼んでいるものを使います。難しそうな名前ですが、評価用データ全てに対して、予測値と、実際の正解データの乖離を計算し、どれくらいの誤差があるかというところからモデルの精度をパーセンテージで確認する手法です。
 
 ```python
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, precision_score, recall_score
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
 
-y_pred_score = decisiontree_clf.predict(X_test)
-accuracy_score(y_test, y_pred_score)
+y_train_predict = lin_model.predict(X_train)
+rmse = (np.sqrt(mean_squared_error(Y_train, y_train_predict)))
+r2 = r2_score(Y_train, y_train_predict)
+
+print("The model performance for training set")
+print("--------------------------------------")
+print('RMSE is {}'.format(rmse))
+print('R2 score is {}'.format(r2))
+print("\n")
+
+y_test_predict = lin_model.predict(X_test)
+rmse = (np.sqrt(mean_squared_error(Y_test, y_test_predict)))
+r2 = r2_score(Y_test, y_test_predict)
+
+print("The model performance for testing set")
+print("--------------------------------------")
+print('RMSE is {}'.format(rmse))
+print('R2 score is {}'.format(r2))
 ```
-![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/e85b838f-b910-ef23-59d1-c2355c565601.png)
 
-結果、このモデルの精度は94%であることがわかりました。100回予測すると94回は正解が出せるということになります。
+![07.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/6180a90f-0f8b-491e-7f86-6c13a934e9ff.png)
 
-最後に、このモデルがどのような木構造をしているのかを確認しておきましょう。作られたモデルを理解しておくことは非常に重要な作業で、昨今、急速に認知が広まっている分野です。モデルを理解しておくことでモデルの不備を見つけやすくなりますし、予測結果のブラックボックス化を防ぎ、なぜそのような結果になったかを説明できるようになります。
+上記では、テストデータに対する評価の結果としてRMSE=5.137、R2スコアは0.662という値になりました。それほど高い値ではないので、このままでリリースするのはさすがに難しいですね。このデータセット以外のデータを追加し、説明変数を増やす必要がありそう、というような感じで、データ収集のフェーズにもどって、説明変数の設計をやり直すなど、実際の分析の現場では試行錯誤を繰り返すということになります。
 
-```python
-import matplotlib.pyplot as plt
-from sklearn import tree
 
-plt.figure(figsize=(20,8))
-tree.plot_tree(decisiontree_clf,feature_names=data_wine.feature_names,filled=True,proportion=True,fontsize=8)
-plt.show()
-```
-![download.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/109260/bd025082-d439-2328-f018-86820dc2ef4c.png)
+MLOpsに取り組もう
+--------------
+上述した内容は予測モデルを構築する処理にフォーカスしたものです。予測モデルが構築できればそれですべてが完了ということにはなりません。データにはトレンドがある場合が多く、一度作ったモデルを未来永劫使うということはありません。データのトレンドが変わればまた新しいモデルを作り直す必要があり、結局はこれまで説明してきた内容を何度も繰り返す運用になります。この運用をできるだけ標準化していこうという考え方がMLOpsです。MLOpsではkubeflowやmlflowといったツールがよく使われますが、mlflowについては過去の下記セッションで取り上げていますので是非ご参考にされてください。
 
-上記の木構造は下記のように読み解きます。
-
-- ノード
-箱がツリー構造で表示されていることがわかります。この箱をノードと呼んでおり、そのノードの色でクラスが表現されています。 
-
-- 条件の分岐点
-箱には特徴量と特徴量の分岐点となる値が不等号で記されていることがわかります。これは該当特徴量の値が表示された値以下だったときと、その値より大きい場合で次の層に分岐しているということです。 
-
-- gini(ジニ係数)
-giniという表示はジニ係数と呼んでいるものです。ジニ係数とは不純度を計る係数となり、値が１に近づくほど不純度が高く、0に近いほど不純度が低いということになります。決定木でいうと、「不純度が高い状態」つまり「ジニ係数の値が高い状態」とは、一つのノード内に複数クラスの要素が分布している状態のことを言います。決定木の計算は、ジニ係数が0になり、ノードが一つのクラスに確定するまで計算が続きます。従って、一つのノード内に複数のクラス要素が分布している状態は「不純度が高い」ということになります。
-
-- Value
-逆に言うと、決定木の計算は、ノード内のジニ係数が0になり、ノードのクラスが一つに収束するまでの、各特徴量の分岐点の値を算出するアルゴリズムだといえます。そのノードが一つのクラスに収束しているのか、それともまだ複数クラスの要素が含まれているのかはvalueの値で確認することができます。本サンプルコードは3つのクラス(good/better/best)のどれかに収束することが目的になりますのでvalueにはこの3つのクラスに相当する3つの値が表示されています。一つの値が1.0になっている場合はその一つのクラスに収束していることになります。
-
-- Samles
-そして、samplesで表示されている値が全データの何パーセントがそのノードに分類されているかということを表しています。基本的には上から数えて、木の深さが深くなるほど、ジニ係数は小さく収束する傾向にあり、また同じ深さのノードのsamplesの値の合計は100%になり、ノード内のvalueの合計は1.0になります。
-
-従って、新しいデータを、このツリー構造の分岐点の値の通りに辿っていくと、どのクラスに属するかが予測できるということになります。
-
-以上が決定木アルゴリズムによる分類問題のハンズオンでした。
+https://www.youtube.com/watch?v=d60SAK4OOJY&list=PL8x2FJpi0g-uDelTpagDe3pSZGePQFO58&ab_channel=JapanOracleDevelopers
 
 さいごに
-----------------
+--------------
+今回は回帰問題タイプのコードを見てきました。これらは最低限理解しなければいけないHello World的なコードであり、機械学習のコードの骨格のようなものです。あとは、各フェーズで、更に様々なライブラリや関数を用いて、もっと詳細な、そして多岐にわたる処理や確認などを行い、この骨格に、肉付けをしてゆきます。
 
-今回は「機械学習のコードの骨格」を理解することが目標でしたので、「アルゴリズムの可読性」を重視し、決定木を題材として選択しました。ですが、実はこのアルゴリズムが実際の分析の現場で使われることはまずありません。実ビジネスで生成されるデータの分布はもっと複雑でこのような単純なアルゴリズムでは精度がでないからです。ただし、この知識が無駄になることはありません。決定木の上位互換にランダムフォレストや勾配ブースティング木といった、決定木と同じツリー系のアルゴリズムがあります。これらは分類問題にも回帰問題にも利用でき、かつ高い精度が期待できるアルゴリズムなので広く利用されています。ですので、今後の学習ステップとしては、今回と同じワインのデータセットを利用し、
+昨今は自分でコードを書かなくても、GUIで簡単に機械学習を実行できるツールが沢山のベンダーから提供されています。そうだとしても、自分でコードを書くということも併せてせてやっておくといいことがあります。
 
-1. アルゴリズムを決定木からランダムフォレストに変更したコードを学習
-2. 最適なハイパーパラメータの選定を自動化するGridSearchCVを追加したコードを学習
-3. 最適なアルゴリズムの選定を自動化するauto sklearnのコードを学習
+まず、常に最先端のアルゴリズム、学習手法などが利用できるGUIベースのツールは恐らくないと思います。最先端のライブラリは大抵PythonやRのライブラリ形態で提供され、GUIベースのツールがそれらをサポートするのはそのずっと後です。ですので最先端の手法を取り入れたいという場合はコーディングベースが最適です。
 
-という流れで学習するとよいかと思われます。その際は、上記3つのコードに相当する下記コードをご参考にされてください。
-(※上述した、train_test_splitでX_train, y_train, X_test, y_test作成後以降の追加のコードを下記に掲載しています。)
+また、GUIベースのツールは精度が出なかったらそれまで、という感じで行き詰る可能性もあります。当たり前ですが、GUIとして実装されている機能以外は使えませんので、帯に短しという状況になる可能性があるということが言えます。一行一行自分でコードを書きながら試行錯誤したり、GUIツールではできない詳細の把握はコーディングベースの強みです。
 
+そして、いくらGUIベースで簡単だと言っても、何も知らない状態では利用が難しい場合があります。メニューやドロップダウンリストから何を選べばよいのか、チューニングのオプションなどがある場合に、各項目のチューニング内容や、どういう値にするか、などはコーディングベースで深く理解していると、より効果的かと思います。
 
-アルゴリズムを決定木からランダムフォレストに変更したコード
-```python
-from sklearn import ensemble
-
-# ランダムフォレストの定義
-randomforest_clf = ensemble.RandomForestClassifier(max_depth=3)
-
-# 学習実行
-randomforest_clf.fit(X_train, y_train)
-
-# 正解率の確認
-y_pred = randomforest_clf.predict(X_test)
-accuracy_score(y_test,y_pred)
-
-# ランダムフォレストの可視化
-!pip install dtreeviz
-
-from dtreeviz.trees import dtreeviz
-
-X=data_wine.data
-y=data_wine.target
-
-estimators = randomforest_clf.estimators_
-viz = dtreeviz(
-    estimators[1],X,y,
-    target_name='wine quality',
-    feature_names=data_wine.feature_names,
-    class_names=list(data_wine.target_names),
-) 
-
-display(viz)
-```
-
-最適なハイパーパラメータの選定を自動化するGridSearchCVを追加したコード
-```python
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV
-
-# 各ハイパーパラメータの値のパターンの定義
-param_grid = {"max_depth":[1,2,3,5,7], "n_estimators":[100,200,500],"min_samples_split":[2,3,5,7] }
-
-# アルゴリズムとグリッドサーチを定義
-randomforest_gs_clf = GridSearchCV(estimator=RandomForestClassifier(random_state=0),
-                 param_grid = param_grid,   
-                 scoring="accuracy",  
-                 cv = 5,              
-                 n_jobs = -1)
-
-# 学習実行
-randomforest_gs_clf.fit(X_train,y_train["target"].values)
-
-# ベストなハイパーパラメータの値の組み合わせを確認
-print("Best Model Parameter: ",randomforest_gs_clf.best_params_)
-
-# ベストなハイパーパラメータの値を組み込んだモデルを定義
-randomforest_gs_clf_best = randomforest_gs_clf.best_estimator_ #best estimator
-
-# 正解率の確認
-y_pred = randomforest_gs_clf_best.predict(X_test)
-accuracy_score(y_test,y_pred)
-```
-
-最適なアルゴリズムの選定を自動化するauto sklearnのコード
-```python
-# scikit-learnのバージョンアップグレードとauto-sklearnのインストール
-!pip install scikit-learn==0.24.0
-!pip install auto-sklearn
-
-from sklearn import datasets, metrics, model_selection, preprocessing, pipeline
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-import autosklearn.classification
-
-# auto sklearnで分類アルゴリズムを定義
-auto_model = autosklearn.classification.AutoSklearnClassifier(time_left_for_this_task=30, ensemble_size=3)
-
-%%capture
-
-# 学習開始
-auto_model.fit(X_train, y_train)
-
-# 混同行列のチャート化
-predicted = auto_model.predict(X_test)
-confusion_matrix = pd.DataFrame(metrics.confusion_matrix(y_test, predicted))
-confusion_matrix
-
-# 精度メトリックの確認
-print("accuracy: {:.3f}".format(metrics.accuracy_score(y_test, predicted)))
-print("precision: {:.3f}".format(metrics.precision_score(y_test, predicted, average='weighted')))
-print("recall: {:.3f}".format(metrics.recall_score(y_test, predicted, average='weighted')))
-print("f1 score: {:.3f}".format(metrics.f1_score(y_test, predicted, average='weighted')))
-```
-
+とはいえ、GUIツールを使うメリットは、あまり詳しくなくても機械学習ができたり、くわしくても、コードを書く工数が大幅に削減できますので、適材適所で是非取り入れていきたいところですね。
